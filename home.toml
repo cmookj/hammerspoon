@@ -8,8 +8,8 @@ show_ui = true            # optional, default true, show the ui with your key ma
 
 
 # set a key to open an app
-# t = "Ghostty"
-t = "WezTerm"
+t = "Ghostty"
+# t = "WezTerm"
 
 
 # or a url
