@@ -1,10 +1,21 @@
--- === Random Mouse Mover Toggle ===
-local moverEnabled = false
-local moverTimer = nil
+-- Local variables for this module
+local interval = 30
+local initial_mouse_position = nil
 
-local function showNotification()
+local screen = hs.screen.mainScreen():frame()
+local fireworks_radius_max = math.floor(screen.w * 1. / 3.)
+local fireworks_radius_min = math.floor(screen.w * 1. / 6.)
+
+local amplitude_x = 10
+local amplitude_y = 10
+
+-- Random Mouse Mover Toggle
+local mover_enabled = false
+local mover_timer = nil
+
+local function show_notification()
 	msg = ""
-	if moverEnabled then
+	if mover_enabled then
 		msg = "Enabled"
 	else
 		msg = "Disabled"
@@ -15,81 +26,80 @@ local function showNotification()
 end
 
 --
--- Mouse highlight similar to fireworks
+-- Fireworks similar to fireworks
 --
-local mouse_highlight = nil
-local mouse_highlight_timer = nil
-local mouse_highlight_radius_max = 1000
-local mouse_highlight_radius_min = 200
-local mouse_alpha_max = 10
-local mouse_alpha_min = 0
-local mouse_alpha = mouse_alpha_max
-local mouse_alpha_increment = -1
-local highlight_color = { 0.6, 0.6, 1.0 }
+local fireworks = nil
+local fireworks_timer = nil
+local fireworks_radius_max = 1000
+local fireworks_radius_min = 200
+local fireworks_alpha_max = 10
+local fireworks_alpha_min = 0
+local fireworks_alpha = fireworks_alpha_max
+local fireworks_alpha_increment = -1
+local fireworks_color = { 0.6, 0.6, 1.0 }
 
 local function random_color()
-	highlight_color[1] = math.random(0, 255) / 255.
-	highlight_color[2] = math.random(0, 255) / 255.
-	highlight_color[3] = math.random(0, 255) / 255.
+	fireworks_color[1] = math.random(0, 255) / 255.
+	fireworks_color[2] = math.random(0, 255) / 255.
+	fireworks_color[3] = math.random(0, 255) / 255.
 end
 
-local function remove_highlight_and_timer()
-	if mouse_highlight then
-		mouse_highlight:delete()
-		mouse_highlight = nil
-		if mouse_highlight_timer then
-			mouse_highlight_timer:stop()
+local function remove_fireworks_and_timer()
+	if fireworks then
+		fireworks:delete()
+		fireworks = nil
+		if fireworks_timer then
+			fireworks_timer:stop()
 		end
-		mouse_highlight_timer = nil
+		fireworks_timer = nil
 	end
 end
 
-local function update_highlight()
-	mouse_alpha = mouse_alpha + mouse_alpha_increment
-	mouse_highlight:hide()
+local function update_fireworks()
+	fireworks_alpha = fireworks_alpha + fireworks_alpha_increment
+	fireworks:hide()
 
-	if mouse_alpha == mouse_alpha_min then
-		remove_highlight_and_timer()
+	if fireworks_alpha == fireworks_alpha_min then
+		remove_fireworks_and_timer()
 		return
 	end
 
-	mouse_highlight:setStrokeColor({
-		["red"] = highlight_color[1],
-		["green"] = highlight_color[2],
-		["blue"] = highlight_color[3],
-		["alpha"] = mouse_alpha / mouse_alpha_max,
+	fireworks:setStrokeColor({
+		["red"] = fireworks_color[1],
+		["green"] = fireworks_color[2],
+		["blue"] = fireworks_color[3],
+		["alpha"] = fireworks_alpha / fireworks_alpha_max,
 	})
-	mouse_highlight:setFillColor({
-		["red"] = highlight_color[1],
-		["green"] = highlight_color[2],
-		["blue"] = highlight_color[3],
-		["alpha"] = mouse_alpha / mouse_alpha_max,
+	fireworks:setFillColor({
+		["red"] = fireworks_color[1],
+		["green"] = fireworks_color[2],
+		["blue"] = fireworks_color[3],
+		["alpha"] = fireworks_alpha / fireworks_alpha_max,
 	})
-	mouse_highlight:setFill(true)
-	mouse_highlight:setStrokeWidth(0)
-	mouse_highlight:show()
+	fireworks:setFill(true)
+	fireworks:setStrokeWidth(0)
+	fireworks:show()
 
 	-- Set a timer to delete the circle after 0.1 seconds
-	mouse_highlight_timer = hs.timer.doAfter(0.1, function()
-		update_highlight()
+	fireworks_timer = hs.timer.doAfter(0.1, function()
+		update_fireworks()
 	end)
 end
 
-local function highlight_mouse()
-	-- Delete an existing highlight if it exsits
-	remove_highlight_and_timer()
+local function fire_fireworks(x, y)
+	-- Delete an existing fireworks if it exsits
+	remove_fireworks_and_timer()
 
 	random_color()
 
-	-- Get the current coordinates of the mouse pointer
-	mouse_point = hs.mouse.absolutePosition()
-	-- Prepare a big red circle around the mouse pointer
-	local mouse_radius = math.random(mouse_highlight_radius_min, mouse_highlight_radius_max)
-	mouse_highlight = hs.drawing.circle(
-		hs.geometry.rect(mouse_point.x - mouse_radius, mouse_point.y - mouse_radius, 2 * mouse_radius, 2 * mouse_radius)
+	-- Prepare a big circle around the position
+	local fireworks_radius = math.random(fireworks_radius_min, fireworks_radius_max)
+	fireworks = hs.drawing.circle(
+		hs.geometry.rect(x - fireworks_radius, y - fireworks_radius, 2 * fireworks_radius, 2 * fireworks_radius)
 	)
-	mouse_alpha = mouse_alpha_max
-	update_highlight()
+	fireworks_alpha = fireworks_alpha_max
+
+	update_fireworks()
 end
 
 local dim_main_display = false
@@ -130,55 +140,43 @@ local function keep_studio_display_dimmed()
 end
 
 -- Function to start movement
-local function startMover()
-	moverEnabled = true
-	showNotification()
+local function start_mover()
+	mover_enabled = true
+	show_notification()
 
-	-- Move mouse randomly at every 3 secs
-	moverTimer = hs.timer.doEvery(3, function()
-		local screen = hs.screen.mainScreen():frame()
-		local x = math.random(screen.x, screen.x + screen.w)
-		local y = math.random(screen.y, screen.y + screen.h)
-		mouse_highlight_radius_max = math.floor(screen.w * 1. / 3.)
-		mouse_highlight_radius_min = math.floor(screen.w * 1. / 6.)
+    initial_mouse_position = hs.mouse.absolutePosition()
+    initial_mouse_position.x = math.floor(initial_mouse_position.x)
+    initial_mouse_position.y = math.floor(initial_mouse_position.y)
 
-		currentPosition = hs.mouse.absolutePosition()
-		local diffX = math.abs(x - currentPosition.x)
-		local diffY = math.abs(y - currentPosition.y)
-		local diff = math.max(diffX, diffY)
+	-- Move mouse randomly at every `interval` secs
+	mover_timer = hs.timer.doEvery(interval, function()
+		local x = math.random(initial_mouse_position.x - amplitude_x, initial_mouse_position.x + amplitude_x)
+		local y = math.random(initial_mouse_position.y - amplitude_y, initial_mouse_position.y + amplitude_y)
 
-		local dx = (x - currentPosition.x) / diff
-		local dy = (y - currentPosition.y) / diff
+        local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = x, y = y })
+        event:post()
+        keep_studio_display_dimmed()
+        if dim_main_display then
+            keep_dimmed()
+        end
 
-		local x = currentPosition.x
-		local y = currentPosition.y
-
-		for i = 0, diff, 1 do
-			x = x + dx
-			y = y + dy
-			local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = x, y = y })
-			event:post()
-            keep_studio_display_dimmed()
-            if dim_main_display then
-                keep_dimmed()
-            end
-			hs.timer.usleep(10)
-		end
-
-		highlight_mouse()
+        -- Randomly choose fireworks position
+		local fireworks_x = math.random(screen.x, screen.x + screen.w)
+		local fireworks_y = math.random(screen.y, screen.y + screen.h)
+		fire_fireworks(fireworks_x, fireworks_y)
 	end)
 end
 
 -- Function to stop movement
-local function stopMover()
-	moverEnabled = false
-	showNotification()
+local function stop_mover()
+	mover_enabled = false
+	show_notification()
 
-	if moverTimer then
-		moverTimer:stop()
-		moverTimer = nil
+	if mover_timer then
+		mover_timer:stop()
+		mover_timer = nil
 
-		remove_highlight_and_timer()
+		remove_fireworks_and_timer()
 	end
 end
 
@@ -189,16 +187,16 @@ local function get_display_names()
 end
 
 -- Toggle function
-local function toggleMover()
-	if moverEnabled then
-		stopMover()
+local function toggle_mover()
+	if mover_enabled then
+		stop_mover()
         if dim_main_display then
 		    hs.brightness.set(previous_brightness)
         end
 		studio:setBrightness(previous_brightness_ext)
 	else
 		-- get_display_names()
-		startMover()
+		start_mover()
         dim_studio_display()
         if dim_main_display then
             gradually_dim_display()
@@ -207,5 +205,5 @@ local function toggleMover()
 end
 
 hs.hotkey.bind({ "cmd", "alt", "shift" }, ".", function()
-	toggleMover()
+	toggle_mover()
 end)
