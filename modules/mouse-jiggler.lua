@@ -1,6 +1,5 @@
 -- Local variables for this module
 local interval = 30
-local initial_mouse_position = nil
 
 local screen = hs.screen.mainScreen():frame()
 local fireworks_radius_max = math.floor(screen.w * 1. / 3.)
@@ -139,19 +138,24 @@ local function keep_studio_display_dimmed()
 	end
 end
 
+local function get_current_mouse_position()
+    local current_mouse_position = hs.mouse.absolutePosition()
+    current_mouse_position.x = math.floor(current_mouse_position.x)
+    current_mouse_position.y = math.floor(current_mouse_position.y)
+
+    return current_mouse_position
+end
+
 -- Function to start movement
 local function start_mover()
 	mover_enabled = true
 	show_notification()
 
-    initial_mouse_position = hs.mouse.absolutePosition()
-    initial_mouse_position.x = math.floor(initial_mouse_position.x)
-    initial_mouse_position.y = math.floor(initial_mouse_position.y)
-
 	-- Move mouse randomly at every `interval` secs
 	mover_timer = hs.timer.doEvery(interval, function()
-		local x = math.random(initial_mouse_position.x - amplitude_x, initial_mouse_position.x + amplitude_x)
-		local y = math.random(initial_mouse_position.y - amplitude_y, initial_mouse_position.y + amplitude_y)
+        local mouse_position = get_current_mouse_position()
+		local x = math.random(mouse_position.x - amplitude_x, mouse_position.x + amplitude_x)
+		local y = math.random(mouse_position.y - amplitude_y, mouse_position.y + amplitude_y)
 
         local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = x, y = y })
         event:post()
@@ -159,6 +163,11 @@ local function start_mover()
         if dim_main_display then
             keep_dimmed()
         end
+
+        -- Move back
+		hs.timer.usleep(1000000)
+        local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = mouse_position.x, y = mouse_position.y })
+        event:post()
 
         -- Randomly choose fireworks position
 		local fireworks_x = math.random(screen.x, screen.x + screen.w)
