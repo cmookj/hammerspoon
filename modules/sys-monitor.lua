@@ -10,7 +10,7 @@ unified.menubar = hs.menubar.new()
 -- CONFIG
 --------------------------------------------------------------------------------
 local IMAGE_HEIGHT = 16
-local SHOW_BATT = true
+local SHOW_BATT = false
 local BAT_WIDTH = 2
 local BAT_SPACING = 1
 local CPU_BAR_WIDTH = 1
@@ -129,7 +129,7 @@ pollMemory()
 local function buildCanvas(coreCount)
 	local cpuWidth = coreCount * CPU_BAR_WIDTH + (coreCount - 1) * CPU_SPACING
 	local totalWidth = cpuWidth + INTER_SPACING + MEM_BAR_WIDTH + 2 * MARGIN
-	if systemHasBattery() then
+	if systemHasBattery() and SHOW_BATT then
 		totalWidth = totalWidth + BAT_WIDTH + BAT_SPACING + 2 * MARGIN
 	end
 
@@ -147,12 +147,6 @@ local function buildCanvas(coreCount)
 		fillColor = CLR_BG,
 		frame = { x = 0, y = 0, w = totalWidth, h = IMAGE_HEIGHT },
 	})
-    unified.canvas:appendElements({
-		type = "rectangle",
-		action = "stroke",
-		fillColor = CLR_WHITE,
-		frame = { x = 0, y = 0, w = totalWidth, h = IMAGE_HEIGHT },
-	})
 
 	unified.cpuBars = {}
 	unified.cpuPeakBars = {}
@@ -162,7 +156,7 @@ local function buildCanvas(coreCount)
 	local x = MARGIN
 
 	-- Battery background
-	if systemHasBattery() then
+	if systemHasBattery() and SHOW_BATT then
 		unified.canvas:appendElements({
 			type = "rectangle",
 			action = "fill",
@@ -291,7 +285,7 @@ function update(cpuData)
 	updateCPU(cpuData)
 
 	-- Battery
-	if systemHasBattery() then
+	if systemHasBattery() and SHOW_BATT then
 		local level = batteryLevel()
 		local h = math.max((level / 100) * IMAGE_HEIGHT, 1)
 
@@ -332,7 +326,5 @@ local function cpuLoop()
 		cpuLoop()
 	end)
 end
-
-print("**** Sys-Monitor being loaded ****")
 
 cpuLoop()
