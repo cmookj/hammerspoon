@@ -1,23 +1,23 @@
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- Unified Monitor
---------------------------------------------------
+--------------------------------------------------------------------------------
 local update -- Forward declaration
 
 local unified = {}
 unified.menubar = hs.menubar.new()
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- CONFIG
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 local IMAGE_HEIGHT = 16
 local BAT_WIDTH = 2
-local BAT_SPACING = 2
+local BAT_SPACING = 1
 local CPU_BAR_WIDTH = 1
 local CPU_SPACING = 1
 local MEM_BAR_WIDTH = 2
 local INTER_SPACING = 2
-local MARGIN = 1
+local MARGIN = 1          -- space at the left & right ends
 
 local CLR_BLACK = { red = 0., green = 0., blue = 0., alpha = 1. }
 local CLR_WHITE = { red = 1., green = 1., blue = 1., alpha = 1. }
@@ -28,9 +28,9 @@ local CLR_MODERATE = { red = 234. / 255., green = 179. / 255., blue = 8. / 255.,
 local CLR_HEAVY = { red = 249. / 255., green = 115. / 255., blue = 22. / 255., alpha = 1.0 }
 local CLR_CRITICAL = { red = 220. / 255., green = 38. / 255., blue = 39. / 255., alpha = 1.0 }
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- INTERNAL STATE
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 local currentCoreCount = 0
 local cachedMemPercent = 0
@@ -47,9 +47,9 @@ unified.batteryFillIndex = nil
 unified.memBarIndex = nil
 unified.pulsePhase = 0
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- HELPERS
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 local function systemHasBattery()
 	return hs.battery.capacity() ~= nil
@@ -98,9 +98,9 @@ local function batteryLevel()
 	return math.floor(hs.battery.percentage() or 0)
 end
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- MEMORY POLLING (optimized)
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 local totalMemoryMB = tonumber(string.match(hs.execute("sysctl hw.memsize"), "(%d+)")) / 1024 / 1024
 
@@ -122,15 +122,15 @@ end
 hs.timer.doEvery(5, pollMemory)
 pollMemory()
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- BUILD CANVAS
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 local function buildCanvas(coreCount)
 	local cpuWidth = coreCount * CPU_BAR_WIDTH + (coreCount - 1) * CPU_SPACING
 	local totalWidth = cpuWidth + INTER_SPACING + MEM_BAR_WIDTH + 2 * MARGIN
 	if systemHasBattery() then
-		totalWidth = totalWidth + BAT_WIDTH + BAT_SPACING
+		totalWidth = totalWidth + BAT_WIDTH + BAT_SPACING + 2 * MARGIN
 	end
 
 	unified.canvas = hs.canvas.new({
@@ -172,7 +172,14 @@ local function buildCanvas(coreCount)
 			frame = { x = x, y = 0, w = BAT_WIDTH, h = IMAGE_HEIGHT },
 		})
 
-		x = x + BAT_WIDTH + BAT_SPACING
+        unified.canvas:appendElements({
+            type = "rectangle",
+            action = "fill",
+            fillColor = { red = 1, green = 1, blue = 1, alpha = 0.9 },
+            frame = { x = x + BAT_WIDTH + MARGIN, y = 0, w = BAT_SPACING, h = IMAGE_HEIGHT },
+        })
+
+		x = x + BAT_WIDTH + BAT_SPACING + 2 * MARGIN
 	end
 
 	-- CPU bars
@@ -217,9 +224,9 @@ local function buildCanvas(coreCount)
 	unified.menubar:setIcon(unified.canvas:imageFromCanvas(), false)
 end
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- CPU UPDATE
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 local function updateCPU(cpuData)
 	if #cpuData ~= currentCoreCount then
@@ -257,9 +264,9 @@ local function updateCPU(cpuData)
 	end
 end
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- MAIN UPDATE
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 function update(cpuData)
 	if not cpuData then
@@ -303,16 +310,16 @@ function update(cpuData)
 	unified.menubar:setIcon(unified.canvas:imageFromCanvas(), false)
 end
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- CLICK
---------------------------------------------------
+--------------------------------------------------------------------------------
 unified.menubar:setClickCallback(function(mods)
 	hs.application.launchOrFocus("Activity Monitor")
 end)
 
---------------------------------------------------
+--------------------------------------------------------------------------------
 -- CPU LOOP
---------------------------------------------------
+--------------------------------------------------------------------------------
 
 local function cpuLoop()
 	hs.host.cpuUsage(1, function(cpuData)
