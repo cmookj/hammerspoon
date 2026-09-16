@@ -10,14 +10,14 @@ unified.menubar = hs.menubar.new()
 -- CONFIG
 --------------------------------------------------------------------------------
 local IMAGE_HEIGHT = 16
+local SHOW_BATT = true
 local BAT_WIDTH = 2
 local BAT_SPACING = 1
 local CPU_BAR_WIDTH = 1
 local CPU_SPACING = 1
 local MEM_BAR_WIDTH = 2
 local INTER_SPACING = 2
-local MARGIN = 1          -- space at the left & right ends
-local DARK_MODE = false
+local MARGIN = 1
 
 local CLR_BLACK = { red = 0., green = 0., blue = 0., alpha = 1. }
 local CLR_WHITE = { red = 1., green = 1., blue = 1., alpha = 1. }
@@ -147,6 +147,12 @@ local function buildCanvas(coreCount)
 		fillColor = CLR_BG,
 		frame = { x = 0, y = 0, w = totalWidth, h = IMAGE_HEIGHT },
 	})
+    unified.canvas:appendElements({
+		type = "rectangle",
+		action = "stroke",
+		fillColor = CLR_WHITE,
+		frame = { x = 0, y = 0, w = totalWidth, h = IMAGE_HEIGHT },
+	})
 
 	unified.cpuBars = {}
 	unified.cpuPeakBars = {}
@@ -172,15 +178,10 @@ local function buildCanvas(coreCount)
 			frame = { x = x, y = 0, w = BAT_WIDTH, h = IMAGE_HEIGHT },
 		})
 
-        local separatorColor = { red = 1, green = 1, blue = 1, alpha = 0.9 }
-        if DARK_MODE == true then
-            separatorColor = { red = 0, green = 0, blue = 0, alpha = 0.9 }
-        end
-
         unified.canvas:appendElements({
             type = "rectangle",
             action = "fill",
-            fillColor = separatorColor,
+            fillColor = { red = 1, green = 1, blue = 1, alpha = 0.9 },
             frame = { x = x + BAT_WIDTH + MARGIN, y = 0, w = BAT_SPACING, h = IMAGE_HEIGHT },
         })
 
@@ -333,13 +334,5 @@ local function cpuLoop()
 end
 
 print("**** Sys-Monitor being loaded ****")
-
-if hs.console.darkMode() then
-    DARK_MODE = true
-    print("The menubar is in Dark mode.")
-else
-    DARK_MODE = false
-    print("The menubar is in Light mode.")
-end
 
 cpuLoop()
