@@ -12,6 +12,9 @@ require("modules.audio-output")
 require("modules.mouse-jiggler")
 -- require("modules.battery-monitor")
 
+-- idlewatch = require("modules.idlewatch")
+-- idlewatch.start()
+
 -- local pasteboard = require("modules.pasteboard")
 -- pasteboard.setSize(10)
 -- hs.hotkey.bind({ "ctrl", "shift", "option" }, "p", pasteboard.showList)
