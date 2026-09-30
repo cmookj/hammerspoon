@@ -1,144 +1,199 @@
--- Local variables for this module
-local interval = 30
-
 local screen = hs.screen.mainScreen():frame()
-local fireworks_radius_max = math.floor(screen.w * 1. / 3.)
-local fireworks_radius_min = math.floor(screen.w * 1. / 6.)
+--------------------------------------------------------------------------------
+-- Fireworks
+--------------------------------------------------------------------------------
+local FireWorks = {}
 
-local amplitude_x = 10
-local amplitude_y = 10
+FireWorks.radius_max = math.floor(screen.w * 1. / 2.)
+FireWorks.radius_min = math.floor(screen.w * 1. / 4.)
 
--- Random Mouse Mover Toggle
-local mover_enabled = false
-local mover_timer = nil
+FireWorks.x = 0
+FireWorks.y = 0
 
-local function show_notification()
+FireWorks.fireworks = nil
+FireWorks.timer = nil
+FireWorks.alpha_max = 10
+FireWorks.alpha_min = 0
+FireWorks.alpha = alpha_max
+FireWorks.alpha_increment = -1
+FireWorks.color = { 0.6, 0.6, 1.0 }
+
+function FireWorks.random_color()
+	FireWorks.color[1] = math.random(0, 255) / 255.
+	FireWorks.color[2] = math.random(0, 255) / 255.
+	FireWorks.color[3] = math.random(0, 255) / 255.
+end
+
+function FireWorks.stop()
+    if FireWorks.timer then
+        FireWorks.timer:stop()
+    end
+    if FireWorks.fireworks then
+        FireWorks.fireworks:delete()
+        FireWorks.fireworks = nil
+    end
+end
+
+function FireWorks.update()
+	FireWorks.alpha = FireWorks.alpha + FireWorks.alpha_increment
+
+	FireWorks.fireworks:hide()
+
+	if FireWorks.alpha == FireWorks.alpha_min then
+		FireWorks:stop()
+		return
+	end
+
+	FireWorks.fireworks:setStrokeColor({
+		["red"] = FireWorks.color[1],
+		["green"] = FireWorks.color[2],
+		["blue"] = FireWorks.color[3],
+		["alpha"] = FireWorks.alpha / FireWorks.alpha_max,
+	})
+	FireWorks.fireworks:setFillColor({
+		["red"] = FireWorks.color[1],
+		["green"] = FireWorks.color[2],
+		["blue"] = FireWorks.color[3],
+		["alpha"] = FireWorks.alpha / FireWorks.alpha_max,
+	})
+	FireWorks.fireworks:setFill(true)
+	FireWorks.fireworks:setStrokeWidth(0)
+	FireWorks.fireworks:show()
+
+	-- Set a timer to delete the circle after 0.1 seconds
+	FireWorks.timer = hs.timer.doAfter(0.1, function()
+		FireWorks:update()
+	end)
+end
+
+function FireWorks.fire()
+	-- Delete an existing fireworks if it exsits
+	FireWorks:stop()
+
+	FireWorks:random_color()
+
+    -- Randomly choose fireworks position
+    FireWorks.x = math.random(screen.x, screen.x + screen.w)
+    FireWorks.y = math.random(screen.y, screen.y + screen.h)
+
+	-- Prepare a big circle around the position
+	local radius = math.random(FireWorks.radius_min, FireWorks.radius_max)
+
+	FireWorks.fireworks = hs.drawing.circle(
+		hs.geometry.rect(FireWorks.x - radius, FireWorks.y - radius, 2 * radius, 2 * radius)
+	)
+	FireWorks.alpha = FireWorks.alpha_max
+
+	FireWorks:update()
+end
+
+--------------------------------------------------------------------------------
+--  Jiggler
+--------------------------------------------------------------------------------
+local Jiggler = {}
+
+-- variables for Jiggler
+Jiggler.fireworks = nil
+Jiggler.interval = 30
+Jiggler.amplitude_x = 10
+Jiggler.amplitude_y = 10
+Jiggler.mover_enabled = false
+Jiggler.mover_timer = nil
+
+-- Screen dimming
+Jiggler.dim_main_display = false
+Jiggler.previous_brightness = hs.brightness.get()
+Jiggler.previous_brightness_ext = 0.3
+Jiggler.dimmed_brightness = 50
+Jiggler.studio = hs.screen.find("Studio Display")
+
+function Jiggler.show_notification()
 	msg = ""
-	if mover_enabled then
+	if Jiggler.mover_enabled then
 		msg = "Enabled"
 	else
 		msg = "Disabled"
 	end
 
 	hs.notify.new({ title = "Mouse Jiggler", informativeText = msg, withdrawAfter = 3 }):send()
-	-- hs.notify.new({ title = "Mouse Jiggler", informativeText = msg, soundName = "Submarine", withdrawAfter = 3 }):send()
 end
 
---
--- Fireworks similar to fireworks
---
-local fireworks = nil
-local fireworks_timer = nil
-local fireworks_radius_max = 1000
-local fireworks_radius_min = 200
-local fireworks_alpha_max = 10
-local fireworks_alpha_min = 0
-local fireworks_alpha = fireworks_alpha_max
-local fireworks_alpha_increment = -1
-local fireworks_color = { 0.6, 0.6, 1.0 }
-
-local function random_color()
-	fireworks_color[1] = math.random(0, 255) / 255.
-	fireworks_color[2] = math.random(0, 255) / 255.
-	fireworks_color[3] = math.random(0, 255) / 255.
-end
-
-local function remove_fireworks_and_timer()
-	if fireworks then
-		fireworks:delete()
-		fireworks = nil
-		if fireworks_timer then
-			fireworks_timer:stop()
-		end
-		fireworks_timer = nil
+function Jiggler.remove_fireworks()
+	if Jiggler.fireworks then
+        Jiggler.fireworks:stop()
+		Jiggler.fireworks = nil
+		Jiggler.timer = nil
 	end
 end
 
-local function update_fireworks()
-	fireworks_alpha = fireworks_alpha + fireworks_alpha_increment
-	fireworks:hide()
+-- Function to stop movement
+function Jiggler.stop_mover()
+	Jiggler.mover_enabled = false
+	Jiggler:show_notification()
 
-	if fireworks_alpha == fireworks_alpha_min then
-		remove_fireworks_and_timer()
-		return
-	end
+	if Jiggler.mover_timer then
+		Jiggler.mover_timer:stop()
+		Jiggler.mover_timer = nil
 
-	fireworks:setStrokeColor({
-		["red"] = fireworks_color[1],
-		["green"] = fireworks_color[2],
-		["blue"] = fireworks_color[3],
-		["alpha"] = fireworks_alpha / fireworks_alpha_max,
-	})
-	fireworks:setFillColor({
-		["red"] = fireworks_color[1],
-		["green"] = fireworks_color[2],
-		["blue"] = fireworks_color[3],
-		["alpha"] = fireworks_alpha / fireworks_alpha_max,
-	})
-	fireworks:setFill(true)
-	fireworks:setStrokeWidth(0)
-	fireworks:show()
-
-	-- Set a timer to delete the circle after 0.1 seconds
-	fireworks_timer = hs.timer.doAfter(0.1, function()
-		update_fireworks()
-	end)
-end
-
-local function fire_fireworks(x, y)
-	-- Delete an existing fireworks if it exsits
-	remove_fireworks_and_timer()
-
-	random_color()
-
-	-- Prepare a big circle around the position
-	local fireworks_radius = math.random(fireworks_radius_min, fireworks_radius_max)
-	fireworks = hs.drawing.circle(
-		hs.geometry.rect(x - fireworks_radius, y - fireworks_radius, 2 * fireworks_radius, 2 * fireworks_radius)
-	)
-	fireworks_alpha = fireworks_alpha_max
-
-	update_fireworks()
-end
-
-local dim_main_display = false
-local previous_brightness = hs.brightness.get()
-local previous_brightness_ext = 0.3
-local dimmed_brightness = 50
-local studio = hs.screen.find("Studio Display")
-
-local function dim_studio_display()
-	if studio then
-		previous_brightness_ext = studio:getBrightness()
-		print("Studio Display brightness = " .. tostring(previous_brightness_ext))
-		studio:setBrightness(0)
+		Jiggler:remove_fireworks()
 	end
 end
 
-local function gradually_dim_display()
+function Jiggler.get_display_names()
+	for _, screen in ipairs(hs.screen.allScreens()) do
+		print(screen:name())
+	end
+end
+
+-- Toggle function
+function Jiggler.toggle_mover()
+	if Jiggler.mover_enabled then
+		Jiggler:stop_mover()
+        if Jiggler.dim_main_display then
+		    hs.brightness.set(Jiggler.previous_brightness)
+        end
+		Jiggler.studio:setBrightness(Jiggler.previous_brightness_ext)
+	else
+		Jiggler:start_mover()
+        Jiggler:dim_studio_display()
+        if Jiggler.dim_main_display then
+            Jiggler:gradually_dim_display()
+        end
+	end
+end
+
+function Jiggler.dim_studio_display()
+	if Jiggler.studio then
+		Jiggler.previous_brightness_ext = Jiggler.studio:getBrightness()
+		-- hs.printf("Studio Display brightness = %f", Jiggler.previous_brightness_ext)
+		Jiggler.studio:setBrightness(0)
+	end
+end
+
+function Jiggler.gradually_dim_display()
 	local current_brightness = hs.brightness.get()
-	if current_brightness <= dimmed_brightness then
+	if current_brightness <= Jiggler.dimmed_brightness then
 		return
 	end
 
-	local step = math.floor((current_brightness - dimmed_brightness) / 10.)
-	for i = current_brightness, dimmed_brightness, -step do
+	local step = math.floor((current_brightness - Jiggler.dimmed_brightness) / 10.)
+	for i = current_brightness, Jiggler.dimmed_brightness, -step do
 		hs.brightness.set(i)
 		hs.timer.usleep(100000)
 	end
 end
 
-local function keep_dimmed()
-	hs.brightness.set(dimmed_brightness)
+function Jiggler.keep_dimmed()
+	hs.brightness.set(Jiggler.dimmed_brightness)
 end
 
-local function keep_studio_display_dimmed()
-	if studio then
-		studio:setBrightness(0)
+function Jiggler.keep_studio_display_dimmed()
+	if Jiggler.studio then
+		Jiggler.studio:setBrightness(0)
 	end
 end
 
-local function get_current_mouse_position()
+function Jiggler.get_current_mouse_position()
     local current_mouse_position = hs.mouse.absolutePosition()
     current_mouse_position.x = math.floor(current_mouse_position.x)
     current_mouse_position.y = math.floor(current_mouse_position.y)
@@ -147,72 +202,35 @@ local function get_current_mouse_position()
 end
 
 -- Function to start movement
-local function start_mover()
-	mover_enabled = true
-	show_notification()
+function Jiggler.start_mover()
+	Jiggler.mover_enabled = true
+	Jiggler:show_notification()
+    Jiggler.fireworks = FireWorks
 
 	-- Move mouse randomly at every `interval` secs
-	mover_timer = hs.timer.doEvery(interval, function()
-        local mouse_position = get_current_mouse_position()
-		local x = math.random(mouse_position.x - amplitude_x, mouse_position.x + amplitude_x)
-		local y = math.random(mouse_position.y - amplitude_y, mouse_position.y + amplitude_y)
+	Jiggler.mover_timer = hs.timer.doEvery(Jiggler.interval, function()
+        local current_pos = Jiggler:get_current_mouse_position()
+		local x = math.random(current_pos.x - Jiggler.amplitude_x, current_pos.x + Jiggler.amplitude_x)
+		local y = math.random(current_pos.y - Jiggler.amplitude_y, current_pos.y + Jiggler.amplitude_y)
 
         local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = x, y = y })
         event:post()
-        keep_studio_display_dimmed()
-        if dim_main_display then
-            keep_dimmed()
+        Jiggler:keep_studio_display_dimmed()
+        if Jiggler.dim_main_display then
+            Jiggler:keep_dimmed()
         end
+
+        -- Fireworks
+        Jiggler.fireworks:fire()
 
         -- Move back
 		hs.timer.usleep(1000000)
-        local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = mouse_position.x, y = mouse_position.y })
+        local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = current_pos.x, y = current_pos.y })
         event:post()
 
-        -- Randomly choose fireworks position
-		local fireworks_x = math.random(screen.x, screen.x + screen.w)
-		local fireworks_y = math.random(screen.y, screen.y + screen.h)
-		fire_fireworks(fireworks_x, fireworks_y)
 	end)
 end
 
--- Function to stop movement
-local function stop_mover()
-	mover_enabled = false
-	show_notification()
-
-	if mover_timer then
-		mover_timer:stop()
-		mover_timer = nil
-
-		remove_fireworks_and_timer()
-	end
-end
-
-local function get_display_names()
-	for _, screen in ipairs(hs.screen.allScreens()) do
-		print(screen:name())
-	end
-end
-
--- Toggle function
-local function toggle_mover()
-	if mover_enabled then
-		stop_mover()
-        if dim_main_display then
-		    hs.brightness.set(previous_brightness)
-        end
-		studio:setBrightness(previous_brightness_ext)
-	else
-		-- get_display_names()
-		start_mover()
-        dim_studio_display()
-        if dim_main_display then
-            gradually_dim_display()
-        end
-	end
-end
-
 hs.hotkey.bind({ "cmd", "alt", "shift" }, ".", function()
-	toggle_mover()
+	Jiggler:toggle_mover()
 end)
