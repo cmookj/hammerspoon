@@ -209,28 +209,125 @@ function Jiggler.start_mover()
 
 	-- Move mouse randomly at every `interval` secs
 	Jiggler.mover_timer = hs.timer.doEvery(Jiggler.interval, function()
-        local current_pos = Jiggler:get_current_mouse_position()
-		local x = math.random(current_pos.x - Jiggler.amplitude_x, current_pos.x + Jiggler.amplitude_x)
-		local y = math.random(current_pos.y - Jiggler.amplitude_y, current_pos.y + Jiggler.amplitude_y)
-
-        local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = x, y = y })
-        event:post()
-        Jiggler:keep_studio_display_dimmed()
-        if Jiggler.dim_main_display then
-            Jiggler:keep_dimmed()
-        end
-
-        -- Fireworks
-        Jiggler.fireworks:fire()
-
-        -- Move back
-		hs.timer.usleep(1000000)
-        local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = current_pos.x, y = current_pos.y })
-        event:post()
-
+        Jiggler:jiggle()
 	end)
+end
+
+-- One shot movement
+function Jiggler.jiggle()
+    Jiggler.fireworks = FireWorks
+
+    local current_pos = Jiggler:get_current_mouse_position()
+    local x = math.random(current_pos.x - Jiggler.amplitude_x, current_pos.x + Jiggler.amplitude_x)
+    local y = math.random(current_pos.y - Jiggler.amplitude_y, current_pos.y + Jiggler.amplitude_y)
+
+    local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = x, y = y })
+    event:post()
+    Jiggler:keep_studio_display_dimmed()
+    if Jiggler.dim_main_display then
+        Jiggler:keep_dimmed()
+    end
+
+    -- Fireworks
+    Jiggler.fireworks:fire()
+
+    -- Move back
+    hs.timer.usleep(1000000)
+    local event = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, { x = current_pos.x, y = current_pos.y })
+    event:post()
+
+    Jiggler.fireworks = nil
+end
+
+--------------------------------------------------------------------------------
+--  IdleWatcher
+--------------------------------------------------------------------------------
+local IdleWatcher = {}
+
+-- Configuration
+local idleThreshold = 60      -- seconds of inactivity before "screensaver" mode starts
+local checkInterval = 5       -- how often to check for idleness (seconds)
+local periodicInterval = 10   -- how often the periodic function runs while idle (seconds)
+
+-- State
+local lastActivity = hs.timer.secondsSinceEpoch()
+local isIdle = false
+local idleTimer, periodicTimer, eventTap
+local enabled = false
+
+-- Your periodic work goes here
+local function periodicFunction()
+    Jiggler:jiggle()
+  -- hs.alert.show("Still idle...", 1)
+  -- e.g. move a window, dim a light, take a snapshot, etc.
+end
+
+local function startIdle()
+  if isIdle then return end
+  isIdle = true
+  hs.printf("idlewatch: entering idle mode")
+  periodicFunction() -- run once immediately
+  periodicTimer = hs.timer.doEvery(periodicInterval, periodicFunction)
+end
+
+local function stopIdle()
+  if not isIdle then return end
+  isIdle = false
+  hs.printf("idlewatch: activity detected, leaving idle mode")
+  if periodicTimer then
+    periodicTimer:stop()
+    periodicTimer = nil
+  end
+end
+
+function IdleWatcher.start()
+  IdleWatcher.stop()
+  lastActivity = hs.timer.secondsSinceEpoch()
+
+  local types = hs.eventtap.event.types
+  eventTap = hs.eventtap.new({
+    types.keyDown,
+    types.flagsChanged,
+    types.mouseMoved,
+    types.leftMouseDown,
+    types.rightMouseDown,
+    types.otherMouseDown,
+    types.leftMouseDragged,
+    types.rightMouseDragged,
+    types.scrollWheel,
+  }, function(_)
+    lastActivity = hs.timer.secondsSinceEpoch()
+    if isIdle then stopIdle() end
+    return false -- never swallow the event
+  end)
+  eventTap:start()
+
+  idleTimer = hs.timer.doEvery(checkInterval, function()
+    local idleFor = hs.timer.secondsSinceEpoch() - lastActivity
+    if not isIdle and idleFor >= idleThreshold then
+      startIdle()
+    end
+  end)
+
+  hs.printf("idlewatch: started")
+end
+
+function IdleWatcher.stop()
+  hs.printf("idlewatch: stopped")
+  if eventTap then eventTap:stop(); eventTap = nil end
+  if idleTimer then idleTimer:stop(); idleTimer = nil end
+  stopIdle()
 end
 
 hs.hotkey.bind({ "cmd", "alt", "shift" }, ".", function()
 	Jiggler:toggle_mover()
+    --[[
+   if enabled then
+       IdleWatcher:stop()
+       enabled = false
+   else
+       IdleWatcher:start()
+       enabled = true
+   end
+   ]]
 end)
